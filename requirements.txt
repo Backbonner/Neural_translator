@@ -2,4 +2,4 @@ streamlit
 transformers
 torch
 langdetect
-sentencepiece
+sentencepiece==0.1.99
