@@ -1,3 +1,4 @@
 cmake
 pkg-config
-build-essential 
+build-essential
+python3-dev 
