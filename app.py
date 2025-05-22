@@ -59,12 +59,18 @@ LANG_CODES_TO_NAMES = {v: k for k, v in LANGUAGES.items()}
 def load_translation_pipeline(source_lang, target_lang):
     if source_lang == "auto":
         # Для автоопределения используем модель, которая поддерживает перевод с нескольких языков
-        model_name = f"Helsinki-NLP/opus-mt-{target_lang}-en"  # Сначала переводим на английский
+        model_name = f"Helsinki-NLP/opus-mt-mul-{target_lang}"  # Используем мультиязычную модель
         try:
             translator = pipeline("translation", model=model_name, device=device)
             return translator, None
         except Exception as e:
-            return None, str(e)
+            # Если мультиязычная модель недоступна, пробуем использовать модель для перевода с английского
+            model_name = f"Helsinki-NLP/opus-mt-en-{target_lang}"
+            try:
+                translator = pipeline("translation", model=model_name, device=device)
+                return translator, None
+            except Exception as e:
+                return None, str(e)
     else:
         # Для конкретной пары языков используем соответствующую модель
         model_name = f"Helsinki-NLP/opus-mt-{source_lang}-{target_lang}"
@@ -74,12 +80,25 @@ def load_translation_pipeline(source_lang, target_lang):
         except Exception as e:
             return None, str(e)
 
-def translate_text(text, translator, max_length=1024):
+def translate_text(text, translator, source_lang="auto", max_length=1024):
     try:
+        if source_lang == "auto":
+            # Сначала определяем язык
+            detected_lang = detect_language(text)
+            if detected_lang:
+                # Если язык определен, используем соответствующую модель
+                model_name = f"Helsinki-NLP/opus-mt-{detected_lang}-{target_lang}"
+                try:
+                    translator = pipeline("translation", model=model_name, device=device)
+                except:
+                    # Если модель не найдена, используем мультиязычную модель
+                    pass
+        
         result = translator(text, max_length=max_length)
         return result[0]['translation_text'], None
     except Exception as e:
         return None, str(e)
+
 #Определение языка введенного текста.
 def detect_language(text):
     try:
@@ -147,7 +166,7 @@ if input_mode == "Текст":
                     
                     if translator:
                         with st.spinner("Перевод..."):
-                            translation, trans_error = translate_text(input_text, translator)
+                            translation, trans_error = translate_text(input_text, translator, source_code)
                             if translation:
                                 st.text_area("Перевод:", value=translation, height=150)
                                 st.success("Перевод завершен!")
