@@ -3,7 +3,6 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 from langdetect import detect
 import torch
 import os
-import tempfile
 from io import StringIO
 
 # Проверка доступности CUDA
@@ -13,10 +12,7 @@ else:
     device = -1  # Использовать CPU если GPU недоступен
 
 # Установка директории для кэша моделей
-cache_dir = os.path.join(tempfile.gettempdir(), 'huggingface_cache')
-os.makedirs(cache_dir, exist_ok=True)
-os.environ['TRANSFORMERS_CACHE'] = cache_dir
-os.environ['HF_HOME'] = cache_dir
+os.environ['TRANSFORMERS_CACHE'] = os.path.join(os.path.expanduser('~'), '.cache', 'huggingface')
 
 # Настройки страницы
 st.set_page_config(
@@ -62,14 +58,21 @@ LANG_CODES_TO_NAMES = {v: k for k, v in LANGUAGES.items()}
 @st.cache_resource
 def load_translation_pipeline(source_lang, target_lang):
     if source_lang == "auto":
-        model_name = f"Helsinki-NLP/opus-mt-mul-{target_lang}"
+        # Для автоопределения используем модель, которая поддерживает перевод с нескольких языков
+        model_name = f"Helsinki-NLP/opus-mt-{target_lang}-en"  # Сначала переводим на английский
+        try:
+            translator = pipeline("translation", model=model_name, device=device)
+            return translator, None
+        except Exception as e:
+            return None, str(e)
     else:
+        # Для конкретной пары языков используем соответствующую модель
         model_name = f"Helsinki-NLP/opus-mt-{source_lang}-{target_lang}"
-    try:
-        translator = pipeline("translation", model=model_name, device=device)
-        return translator, None
-    except Exception as e:
-        return None, str(e)
+        try:
+            translator = pipeline("translation", model=model_name, device=device)
+            return translator, None
+        except Exception as e:
+            return None, str(e)
 
 def translate_text(text, translator, max_length=1024):
     try:
