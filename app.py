@@ -3,7 +3,20 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 from langdetect import detect
 import torch
 import os
+import tempfile
 from io import StringIO
+
+# Проверка доступности CUDA
+if torch.cuda.is_available():
+    device = 0  # Использовать GPU если доступно
+else:
+    device = -1  # Использовать CPU если GPU недоступен
+
+# Установка директории для кэша моделей
+cache_dir = os.path.join(tempfile.gettempdir(), 'huggingface_cache')
+os.makedirs(cache_dir, exist_ok=True)
+os.environ['TRANSFORMERS_CACHE'] = cache_dir
+os.environ['HF_HOME'] = cache_dir
 
 # Настройки страницы
 st.set_page_config(
@@ -53,7 +66,6 @@ def load_translation_pipeline(source_lang, target_lang):
     else:
         model_name = f"Helsinki-NLP/opus-mt-{source_lang}-{target_lang}"
     try:
-        device = 0 if torch.cuda.is_available() else -1
         translator = pipeline("translation", model=model_name, device=device)
         return translator, None
     except Exception as e:
